@@ -115,6 +115,7 @@ object ServiceLocator {
     lateinit var nearbyClasses: NearbyClassRepository
     lateinit var attendanceSessions: AttendanceSessionRepository
     lateinit var bleManager: BleManager
+    lateinit var localClassroomHost: LocalClassroomHostRepository
 
     fun init(context: Context) {
         bleManager = BleManager(context)
@@ -123,6 +124,7 @@ object ServiceLocator {
                 context.getSharedPreferences("attendance_records", Context.MODE_PRIVATE)
             )
         )
+        localClassroomHost = AndroidLocalClassroomHostRepository(context)
         if (BuildConfig.USE_FAKE_BACKEND) {
             auth = FakeAuthRepository(context.getSharedPreferences("auth", Context.MODE_PRIVATE))
             courses = FakeCourseRepository()

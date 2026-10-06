@@ -23,7 +23,9 @@ import com.diu.attendance.data.BleStatus
 @Composable
 fun AppRoot() {
     val vm: AppViewModel = viewModel()
-    BackHandler(enabled = vm.screen != Screen.Role) { vm.back() }
+    BackHandler(enabled = vm.screen != Screen.Role) {
+        if (!vm.busy) vm.back()
+    }
     when (vm.screen) {
         Screen.Role -> RoleScreen(vm)
         Screen.Login -> LoginScreen(vm)
@@ -137,10 +139,11 @@ fun BleStatusBadge(status: BleStatus) {
 @Composable
 fun AttendanceScreen(vm: AppViewModel) {
     val presentCount = vm.present.values.count { it }
-    val blePermissionLauncher = rememberLauncherForActivityResult(
+    val wifiPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        vm.startSession()
+    ) { permissions ->
+        if (permissions.values.all { it }) vm.startSession()
+        else vm.onHostPermissionDenied()
     }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -152,53 +155,91 @@ fun AttendanceScreen(vm: AppViewModel) {
             Text("${vm.course?.code} | Section ${vm.section} | ${vm.room}", style = MaterialTheme.typography.titleMedium)
             BleStatusBadge(vm.bleStatus)
         }
-        Text("Present: $presentCount / ${vm.students.size}")
-        val session = vm.attendanceSession?.takeIf { it.state == com.diu.attendance.data.AttendanceSessionState.ACTIVE }
+        Text("Teacher roster: $presentCount / ${vm.students.size} marked present")
+        val session = vm.attendanceSession
+        val sessionActive = session?.state == com.diu.attendance.data.AttendanceSessionState.ACTIVE
         session?.let {
             Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Share this session credential with students")
-                    Text(
-                        vm.sessionCredential.orEmpty(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text("Expires at ${java.text.DateFormat.getTimeInstance().format(java.util.Date(it.expiresAtMillis))}")
-                    Text("BLE is discovery-only; local network attendance transport is not connected yet.", style = MaterialTheme.typography.bodySmall)
+                Column(Modifier.padding(16.dp).fillMaxWidth()) {
+                    Text("Classroom session", style = MaterialTheme.typography.titleMedium)
+                    Text("${it.courseCode} - ${it.courseName}")
+                    Text("Section ${it.section} | ${it.room}")
+                    Text("Teacher: ${it.teacherName}")
+                    Text("Session status: ${it.state}")
+                    Text("Attendance recorded: ${vm.liveAttendanceCount} / ${vm.students.size}")
+                    if (sessionActive) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Session code", style = MaterialTheme.typography.labelMedium)
+                        Text(vm.sessionCredential.orEmpty(), fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        Text("This 6-digit RollCall code is not the Wi-Fi password.", style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                        vm.localHostDetails?.let { host ->
+                            Text("Network: ${host.networkMode}")
+                            host.ssid?.let { ssid -> Text("Wi-Fi name: $ssid") }
+                            host.passphrase?.let { password -> Text("Local-only Wi-Fi password: $password") }
+                            Text("Encrypted HTTPS service port: ${host.port}")
+                            Text("Service discovery: ${vm.hostDiscoveryStatus}")
+                            if (host.ssid != null) {
+                                Text(
+                                    "Students must join this RollCall Wi-Fi network in Android Wi-Fi settings. " +
+                                        "The local-only network has no internet access.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            } else {
+                                Text("Students must be connected to the same Wi-Fi network.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Text("Bluetooth discovery is optional and carries class metadata only.", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "Expires at ${java.text.DateFormat.getTimeInstance().format(java.util.Date(it.expiresAtMillis))}",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    } else {
+                        Text("The session code has been invalidated.", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (session == null) {
+            if (!sessionActive) {
                 Button(
                     onClick = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            blePermissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.BLUETOOTH_SCAN,
-                                    Manifest.permission.BLUETOOTH_ADVERTISE,
-                                    Manifest.permission.BLUETOOTH_CONNECT,
-                                )
-                            )
-                        } else {
-                            vm.startSession()
+                        if (vm.prerequisitesReady()) {
+                            val permission = if (Build.VERSION.SDK_INT >= 33) {
+                                Manifest.permission.NEARBY_WIFI_DEVICES
+                            } else {
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            }
+                            wifiPermissionLauncher.launch(arrayOf(permission))
                         }
                     },
                     enabled = !vm.busy,
-                ) {
-                    Text(if (vm.busy) "Starting..." else "Start Attendance")
+                ) { Text(if (vm.busy) "Starting..." else "Start Attendance") }
+                if (vm.canUseCurrentWifi) {
+                    OutlinedButton(
+                        onClick = { if (vm.prerequisitesReady()) vm.startSession(useCurrentWifi = true) },
+                        enabled = !vm.busy,
+                    ) { Text("Use current Wi-Fi") }
                 }
             } else {
-                OutlinedButton(onClick = vm::stopSession) { Text("Stop") }
+                OutlinedButton(onClick = vm::stopSession, enabled = !vm.busy) { Text("Stop Attendance") }
             }
             Button(onClick = vm::save, enabled = !vm.busy) { Text("Save to portal") }
+        }
+        if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 4.dp))
+        vm.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (!sessionActive && !vm.busy) {
+            Text(
+                "Starting a class requests Android's local-only Wi-Fi hotspot. If Android cannot provide one, " +
+                    "connect to an existing Wi-Fi network and use the fallback.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(checked = vm.simulateFailure, onCheckedChange = vm::setSimulateFailure)
             Spacer(Modifier.width(8.dp))
             Text("Simulate upload failure (demo)", style = MaterialTheme.typography.bodySmall)
         }
-        vm.message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         LazyColumn(Modifier.weight(1f)) {
             items(vm.students, key = { it.id }) { s ->
                 Row(

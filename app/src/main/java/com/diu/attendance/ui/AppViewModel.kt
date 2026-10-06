@@ -38,6 +38,10 @@ class AppViewModel : ViewModel() {
     val present = mutableStateMapOf<String, Boolean>()
     var attendanceSession by mutableStateOf<AttendanceSession?>(null); private set
     var sessionCredential by mutableStateOf<String?>(null); private set
+    var localHostDetails by mutableStateOf<LocalHostDetails?>(null); private set
+    var hostDiscoveryStatus by mutableStateOf("Not started"); private set
+    var liveAttendanceCount by mutableStateOf(0); private set
+    var canUseCurrentWifi by mutableStateOf(false); private set
     var simulateFailure by mutableStateOf(false); private set
 
     // Student Flow & Hybrid BLE State
@@ -200,55 +204,150 @@ class AppViewModel : ViewModel() {
 
     fun toggle(id: String) { present[id] = !(present[id] ?: false) }
 
-    fun startSession() {
-        val selectedCourse = course ?: return
-        if (busy || section.isBlank() || room.isBlank()) return
+    fun prerequisitesReady(): Boolean {
+        val problem = when {
+            course == null -> "Select a course before starting attendance."
+            section.isBlank() -> "Select a section before starting attendance."
+            room.isBlank() -> "Select a room before starting attendance."
+            students.isEmpty() -> "Load the course roster before starting attendance."
+            teacher?.name.isNullOrBlank() -> "Teacher information is missing. Sign in again."
+            else -> null
+        }
+        if (problem != null) message = problem
+        return problem == null
+    }
+
+    fun startSession(useCurrentWifi: Boolean = false) {
+        val selectedCourse = course ?: run { prerequisitesReady(); return }
+        if (busy || !prerequisitesReady()) return
 
         viewModelScope.launch {
             busy = true
             message = null
-            val started = runCatching {
-                ServiceLocator.attendanceSessions.startSession(
+            canUseCurrentWifi = false
+            hostDiscoveryStatus = "Starting"
+            var created: StartedAttendanceSession? = null
+            try {
+                created = ServiceLocator.attendanceSessions.startSession(
                     course = selectedCourse,
                     section = section,
                     room = room,
-                    teacherName = teacher?.name ?: "Demo Teacher",
+                    teacherName = teacher?.name.orEmpty(),
                     roster = students.toList(),
                 )
-            }
-            started.onSuccess { result ->
-                attendanceSession = result.session
-                sessionCredential = result.credential
-                watchSessionExpiry(result.session.id, result.session.expiresAtMillis)
+                val started = created
+                val details = if (useCurrentWifi) {
+                    ServiceLocator.localClassroomHost.startOnCurrentWifi(
+                        started.session,
+                        ServiceLocator.attendanceSessions,
+                        ::onHostDiscoveryStatus,
+                    )
+                } else {
+                    ServiceLocator.localClassroomHost.startOnLocalOnlyHotspot(
+                        started.session,
+                        ServiceLocator.attendanceSessions,
+                        ::onHostDiscoveryStatus,
+                    ) { reason ->
+                        stopAfterHostLoss(started.session.id, reason)
+                    }
+                }
+                attendanceSession = started.session
+                sessionCredential = started.credential
+                localHostDetails = details
+                message = null
+                watchSessionExpiry(started.session.id, started.session.expiresAtMillis)
+                watchAttendanceRecords(started.session.id)
                 bleStatus = ServiceLocator.bleManager.status(requireAdvertise = true)
                 if (bleStatus == BleStatus.ACTIVE) {
                     ServiceLocator.bleManager.startAdvertising(
                         ActiveClassSession(
-                            sessionId = result.session.id,
-                            courseCode = result.session.courseCode,
-                            courseName = result.session.courseName,
-                            section = result.session.section,
-                            room = result.session.room,
-                            teacherName = result.session.teacherName,
-                            expiresAtMillis = result.session.expiresAtMillis,
+                            sessionId = started.session.id,
+                            courseCode = started.session.courseCode,
+                            courseName = started.session.courseName,
+                            section = started.session.section,
+                            room = started.session.room,
+                            teacherName = started.session.teacherName,
+                            expiresAtMillis = started.session.expiresAtMillis,
                         )
                     )
                 }
-            }.onFailure {
-                message = it.message ?: "Could not start attendance session"
+            } catch (error: Exception) {
+                ServiceLocator.localClassroomHost.stop()
+                created?.let { ServiceLocator.attendanceSessions.stopSession(it.session.id) }
+                attendanceSession = null
+                sessionCredential = null
+                localHostDetails = null
+                hostDiscoveryStatus = "Not started"
+                canUseCurrentWifi = (error as? LocalHostStartException)?.canUseCurrentWifi == true
+                message = error.message ?: "Could not start classroom hosting."
+            } finally {
+                busy = false
             }
-            busy = false
         }
     }
 
+    private fun onHostDiscoveryStatus(status: String) {
+        hostDiscoveryStatus = status
+        if (status.startsWith("Network discovery unavailable")) {
+            message = status
+        }
+    }
+
+    private fun stopAfterHostLoss(sessionId: String, reason: String) {
+        if (attendanceSession?.id != sessionId) return
+        viewModelScope.launch {
+            ServiceLocator.attendanceSessions.stopSession(sessionId)
+            ServiceLocator.localClassroomHost.stop()
+            attendanceSession = attendanceSession?.copy(state = AttendanceSessionState.STOPPED)
+            sessionCredential = null
+            localHostDetails = null
+            hostDiscoveryStatus = "Stopped"
+            message = reason
+            ServiceLocator.bleManager.stopAdvertising()
+        }
+    }
+
+    fun onHostPermissionDenied() {
+        val permissionName = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            "Nearby Wi-Fi devices"
+        } else {
+            "Location (required by Android Wi-Fi hotspot APIs)"
+        }
+        message = "$permissionName permission is required to host attendance. Allow it in app settings, then retry."
+    }
+
     fun stopSession() {
+        if (busy) return
         val sessionId = attendanceSession?.id
+        busy = true
+        message = null
         sessionCredential = null
+        localHostDetails = null
+        canUseCurrentWifi = false
         ServiceLocator.bleManager.stopAdvertising()
-        if (sessionId != null) {
-            viewModelScope.launch {
-                ServiceLocator.attendanceSessions.stopSession(sessionId)
-                attendanceSession = attendanceSession?.copy(state = AttendanceSessionState.STOPPED)
+        viewModelScope.launch {
+            try {
+                if (sessionId != null) {
+                    ServiceLocator.attendanceSessions.stopSession(sessionId)
+                    attendanceSession = attendanceSession?.copy(state = AttendanceSessionState.STOPPED)
+                }
+                ServiceLocator.localClassroomHost.stop()
+                hostDiscoveryStatus = "Stopped"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    private fun watchAttendanceRecords(sessionId: String) {
+        viewModelScope.launch {
+            while (attendanceSession?.id == sessionId &&
+                attendanceSession?.state == AttendanceSessionState.ACTIVE
+            ) {
+                val records = ServiceLocator.attendanceSessions.records(sessionId)
+                liveAttendanceCount = records.size
+                records.forEach { present[it.studentId] = true }
+                delay(RECORD_REFRESH_MILLIS)
             }
         }
     }
@@ -257,11 +356,30 @@ class AppViewModel : ViewModel() {
         viewModelScope.launch {
             delay((expiresAtMillis - System.currentTimeMillis()).coerceAtLeast(0L))
             if (attendanceSession?.id == sessionId && attendanceSession?.state == AttendanceSessionState.ACTIVE) {
+                ServiceLocator.localClassroomHost.stop()
                 attendanceSession = ServiceLocator.attendanceSessions.activeSession()
                 sessionCredential = null
+                localHostDetails = null
+                hostDiscoveryStatus = "Session expired"
                 ServiceLocator.bleManager.stopAdvertising()
             }
         }
+    }
+
+    override fun onCleared() {
+        val sessionId = attendanceSession?.id
+        kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+        ).launch {
+            sessionId?.let { runCatching { ServiceLocator.attendanceSessions.stopSession(it) } }
+            runCatching { ServiceLocator.localClassroomHost.stop() }
+        }
+        ServiceLocator.bleManager.stopAdvertising()
+        super.onCleared()
+    }
+
+    private companion object {
+        const val RECORD_REFRESH_MILLIS = 1_000L
     }
 
     @JvmName("updateSimulateFailure")

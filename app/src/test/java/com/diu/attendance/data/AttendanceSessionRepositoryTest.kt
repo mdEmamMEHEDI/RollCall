@@ -17,6 +17,15 @@ class AttendanceSessionRepositoryTest {
     )
 
     @Test
+    fun generatedSessionCodeIsSixDigits() = runBlocking {
+        val defaultRepository = TeacherAttendanceSessionRepository(InMemoryAttendanceRecordStore())
+        val started = defaultRepository.startSession(course, "A", "Room 301", "Demo Teacher", roster)
+
+        assertTrue(started.credential.matches(Regex("\\d{6}")))
+        defaultRepository.stopSession(started.session.id)
+    }
+
+    @Test
     fun validRosterRequestCreatesTeacherRecordBeforeReturningRecorded() = runBlocking {
         val started = startSession()
         val result = repository.submit(request(started, roster.first()))

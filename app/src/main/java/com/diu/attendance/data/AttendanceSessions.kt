@@ -256,11 +256,8 @@ class TeacherAttendanceSessionRepository(
     companion object {
         const val SESSION_TTL_MILLIS = 90L * 60L * 1000L
 
-        private fun newCredential(): String {
-            val bytes = ByteArray(32)
-            SecureRandom().nextBytes(bytes)
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-        }
+        private fun newCredential(): String =
+            String.format(java.util.Locale.US, "%06d", SecureRandom().nextInt(1_000_000))
     }
 }
 
