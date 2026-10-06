@@ -1,6 +1,10 @@
 package com.diu.attendance.ui
 
+import android.Manifest
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +18,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.diu.attendance.data.BleStatus
 
 @Composable
 fun AppRoot() {
@@ -24,7 +29,10 @@ fun AppRoot() {
         Screen.Login -> LoginScreen(vm)
         Screen.Select -> SelectScreen(vm)
         Screen.Attendance -> AttendanceScreen(vm)
-        Screen.Student -> StudentPlaceholder(vm)
+        Screen.StudentProfile -> StudentProfileScreen(vm)
+        Screen.StudentNearby -> StudentNearbyScreen(vm)
+        Screen.StudentCodeEntry -> StudentCodeEntryScreen(vm)
+        Screen.StudentSuccess -> StudentSuccessScreen(vm)
     }
 }
 
@@ -105,23 +113,84 @@ fun SelectScreen(vm: AppViewModel) {
 }
 
 @Composable
+fun BleStatusBadge(status: BleStatus) {
+    val (label, color) = when (status) {
+        BleStatus.ACTIVE -> "🟢 BLE Active" to MaterialTheme.colorScheme.primary
+        BleStatus.DISABLED -> "🟡 Bluetooth Disabled (Simulation Mode)" to MaterialTheme.colorScheme.secondary
+        BleStatus.NO_PERMISSION -> "🔴 BLE Permission Missing (Simulation Mode)" to MaterialTheme.colorScheme.error
+        BleStatus.UNSUPPORTED -> "⚪ BLE Unsupported (Simulation Mode)" to MaterialTheme.colorScheme.outline
+    }
+    Surface(
+        color = color.copy(alpha = 0.12f),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
 fun AttendanceScreen(vm: AppViewModel) {
     val presentCount = vm.present.values.count { it }
+    val blePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        vm.startSession()
+    }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("${vm.course?.code} | Section ${vm.section} | ${vm.room}", style = MaterialTheme.typography.titleMedium)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("${vm.course?.code} | Section ${vm.section} | ${vm.room}", style = MaterialTheme.typography.titleMedium)
+            BleStatusBadge(vm.bleStatus)
+        }
         Text("Present: $presentCount / ${vm.students.size}")
-        vm.sessionCode?.let { code ->
+        val session = vm.attendanceSession?.takeIf { it.state == com.diu.attendance.data.AttendanceSessionState.ACTIVE }
+        session?.let {
             Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Write this code on the board")
-                    Text(code, fontSize = 56.sp, fontWeight = FontWeight.Bold)
-                    Text("Hotspot and BLE start here in the next step", style = MaterialTheme.typography.bodySmall)
+                    Text("Share this session credential with students")
+                    Text(
+                        vm.sessionCredential.orEmpty(),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text("Expires at ${java.text.DateFormat.getTimeInstance().format(java.util.Date(it.expiresAtMillis))}")
+                    Text("BLE is discovery-only; local network attendance transport is not connected yet.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (vm.sessionCode == null) Button(onClick = vm::startSession) { Text("Start Attendance") }
-            else OutlinedButton(onClick = vm::stopSession) { Text("Stop") }
+            if (session == null) {
+                Button(
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            blePermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.BLUETOOTH_SCAN,
+                                    Manifest.permission.BLUETOOTH_ADVERTISE,
+                                    Manifest.permission.BLUETOOTH_CONNECT,
+                                )
+                            )
+                        } else {
+                            vm.startSession()
+                        }
+                    },
+                    enabled = !vm.busy,
+                ) {
+                    Text(if (vm.busy) "Starting..." else "Start Attendance")
+                }
+            } else {
+                OutlinedButton(onClick = vm::stopSession) { Text("Stop") }
+            }
             Button(onClick = vm::save, enabled = !vm.busy) { Text("Save to portal") }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -148,11 +217,202 @@ fun AttendanceScreen(vm: AppViewModel) {
 }
 
 @Composable
-fun StudentPlaceholder(vm: AppViewModel) {
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-        Text("Student app", style = MaterialTheme.typography.headlineSmall)
-        Text("Nearby class list and Join Class come in the next steps.")
+fun StudentProfileScreen(vm: AppViewModel) {
+    var id by remember(vm.studentProfile) { mutableStateOf(vm.studentProfile?.id ?: "") }
+    var name by remember(vm.studentProfile) { mutableStateOf(vm.studentProfile?.name ?: "") }
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("Student Profile Setup", style = MaterialTheme.typography.headlineSmall)
+        Text("Enter your Student ID and Name to continue", style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(16.dp))
-        TextButton(onClick = vm::back) { Text("Back") }
+        OutlinedTextField(
+            value = id,
+            onValueChange = { id = it },
+            label = { Text("Student ID (e.g., 241-15-001)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Full Name") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        vm.studentError?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { vm.saveStudentProfile(id, name) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Save & Continue")
+        }
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = vm::back, modifier = Modifier.fillMaxWidth()) {
+            Text("Back")
+        }
+    }
+}
+
+@Composable
+fun StudentNearbyScreen(vm: AppViewModel) {
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        vm.openStudentNearby()
+    }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text("Hello, ${vm.studentProfile?.name ?: "Student"}", style = MaterialTheme.typography.titleLarge)
+                Text("ID: ${vm.studentProfile?.id ?: ""}", style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(onClick = vm::openStudentProfileEdit) { Text("Edit Profile") }
+        }
+        Spacer(Modifier.height(8.dp))
+        BleStatusBadge(vm.bleStatus)
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Nearby Active Classes", style = MaterialTheme.typography.titleMedium)
+            IconButton(onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    requestPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        )
+                    )
+                } else {
+                    vm.openStudentNearby()
+                }
+            }) {
+                Text("🔄", fontSize = 16.sp)
+            }
+        }
+        Text("Join a class and submit the session credential. Attendance is confirmed by the teacher session.", style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(12.dp))
+
+        if (vm.busy) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (vm.nearbySessions.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No active class sessions found nearby.")
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(vm.nearbySessions) { s ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { vm.selectNearbySession(s) },
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(s.courseCode, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                AssistChip(onClick = { vm.selectNearbySession(s) }, label = { Text("Join") })
+                            }
+                            Text(s.courseName, style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Section ${s.section} | ${s.room} | Teacher: ${s.teacherName}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudentCodeEntryScreen(vm: AppViewModel) {
+    var credential by remember { mutableStateOf("") }
+    val session = vm.selectedSession
+
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Join Class Session", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(8.dp))
+        session?.let { s ->
+            Text("${s.courseCode} - ${s.courseName}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Section ${s.section} | ${s.room} | Teacher: ${s.teacherName}", style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("Enter the session credential shared by the teacher:", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = credential,
+            onValueChange = { if (it.length <= 64) credential = it },
+            label = { Text("Session credential") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        vm.studentError?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(24.dp))
+        Button(
+            onClick = { vm.submitAttendanceCredential(credential) },
+            enabled = credential.isNotBlank() && !vm.busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (vm.busy) "Waiting for teacher..." else "Request Attendance")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = vm::back, modifier = Modifier.fillMaxWidth()) {
+            Text("Cancel")
+        }
+    }
+}
+
+@Composable
+fun StudentSuccessScreen(vm: AppViewModel) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("🎉 Success!", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            vm.studentSuccessMessage ?: "Attendance marked successfully!",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Student: ${vm.studentProfile?.name} (${vm.studentProfile?.id})",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(32.dp))
+        Button(
+            onClick = vm::openStudentNearby,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Back to Classes")
+        }
     }
 }

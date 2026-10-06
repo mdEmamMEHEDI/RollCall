@@ -20,10 +20,16 @@ interface StudentListRepository {
 interface AttendanceUploadRepository {
     suspend fun upload(data: AttendanceUpload): Result<Unit>
 }
+interface StudentProfileRepository {
+    fun getProfile(): StudentProfile?
+    fun saveProfile(profile: StudentProfile)
+}
+interface NearbyClassRepository {
+    suspend fun getNearbySessions(): List<ActiveClassSession>
+}
 
 private const val FAKE_DELAY = 500L
 
-/** Demo login: demo@diu.edu.bd / 1234. Stays signed in via SharedPreferences (will be encrypted later). */
 class FakeAuthRepository(private val prefs: SharedPreferences) : AuthRepository {
     override suspend fun login(email: String, password: String): Result<Teacher> {
         delay(FAKE_DELAY)
@@ -40,6 +46,29 @@ class FakeAuthRepository(private val prefs: SharedPreferences) : AuthRepository 
     }
 
     override fun logout() { prefs.edit().clear().apply() }
+}
+
+class FakeStudentProfileRepository(private val prefs: SharedPreferences) : StudentProfileRepository {
+    override fun getProfile(): StudentProfile? {
+        val id = prefs.getString("student_id", null) ?: return null
+        val name = prefs.getString("student_name", "") ?: ""
+        return StudentProfile(id, name)
+    }
+
+    override fun saveProfile(profile: StudentProfile) {
+        prefs.edit().putString("student_id", profile.id).putString("student_name", profile.name).apply()
+    }
+}
+
+class FakeNearbyClassRepository : NearbyClassRepository {
+    override suspend fun getNearbySessions(): List<ActiveClassSession> {
+        delay(FAKE_DELAY)
+        val expiry = System.currentTimeMillis() + TeacherAttendanceSessionRepository.SESSION_TTL_MILLIS
+        return listOf(
+            ActiveClassSession("demo-SWE431-A", "SWE431", "Software Engineering Capstone", "A", "Room 301", "Demo Teacher", expiry),
+            ActiveClassSession("demo-CSE312-B", "CSE312", "Computer Networks", "B", "Room 405", "Dr. Ahsan", expiry),
+        )
+    }
 }
 
 class FakeCourseRepository : CourseRepository {
@@ -82,13 +111,25 @@ object ServiceLocator {
     lateinit var courses: CourseRepository
     lateinit var students: StudentListRepository
     lateinit var upload: AttendanceUploadRepository
+    lateinit var studentProfile: StudentProfileRepository
+    lateinit var nearbyClasses: NearbyClassRepository
+    lateinit var attendanceSessions: AttendanceSessionRepository
+    lateinit var bleManager: BleManager
 
     fun init(context: Context) {
+        bleManager = BleManager(context)
+        attendanceSessions = TeacherAttendanceSessionRepository(
+            SharedPreferencesAttendanceRecordStore(
+                context.getSharedPreferences("attendance_records", Context.MODE_PRIVATE)
+            )
+        )
         if (BuildConfig.USE_FAKE_BACKEND) {
             auth = FakeAuthRepository(context.getSharedPreferences("auth", Context.MODE_PRIVATE))
             courses = FakeCourseRepository()
             students = FakeStudentListRepository()
             upload = FakeAttendanceUploadRepository()
+            studentProfile = FakeStudentProfileRepository(context.getSharedPreferences("student_auth", Context.MODE_PRIVATE))
+            nearbyClasses = FakeNearbyClassRepository()
         } else {
             error("Real backend is not added yet")
         }
