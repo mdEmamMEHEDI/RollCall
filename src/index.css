@@ -1,0 +1,124 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Manrope', sans-serif;
+  --font-sans: 'Inter', sans-serif;
+  --radius-base: 16px;
+  --radius-sheet: 28px;
+}
+
+:root {
+  --bg: #f7faf9;
+  --surface: #ffffff;
+  --ink: #14211f;
+  --ink-2: #566663;
+  --line: #e1ebe8;
+  --primary: #0066cc;
+  --on-primary: #ffffff;
+  --mint: #e3effb;
+  --on-mint: #0066cc;
+  --amber: #f5a524;
+  --on-amber: #14211f;
+  --red: #d64545;
+  --red-soft: #fbe6e6;
+}
+.dark {
+  --bg: #0b1514;
+  --surface: #13201e;
+  --ink: #e8f1ef;
+  --ink-2: #9db0ac;
+  --line: #22322f;
+  --primary: #5aa9ff;
+  --on-primary: #04203f;
+  --mint: #0f2a47;
+  --on-mint: #a9cffb;
+  --amber: #f5a524;
+  --on-amber: #14211f;
+  --red: #ef6b6b;
+  --red-soft: #3a1c1c;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-mint: var(--mint);
+  --color-on-mint: var(--on-mint);
+  --color-amber: var(--amber);
+  --color-on-amber: var(--on-amber);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+}
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+@keyframes radar {
+  0% { transform: scale(0.25); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 0; }
+}
+@keyframes slide-in {
+  0% { transform: translateY(-14px); opacity: 0; background: var(--mint); }
+  60% { background: var(--mint); }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes rise {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes code-swap {
+  from { transform: translateY(12px); opacity: 0; filter: blur(6px); }
+  to { transform: none; opacity: 1; filter: none; }
+}
+@keyframes blink {
+  50% { opacity: 0.25; }
+}
+.anim-radar { animation: radar 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
+.anim-slide { animation: slide-in 0.9s ease-out both; }
+.anim-rise { animation: rise 0.35s ease-out both; }
+.anim-code { animation: code-swap 0.45s ease-out both; }
+.anim-blink { animation: blink 1.4s ease-in-out infinite; }
+
+@keyframes pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes burst {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+}
+.anim-pop { animation: pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+.anim-draw { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw 0.4s 0.35s ease-out forwards; }
+.anim-spin { animation: spin 0.9s linear infinite; }
+.anim-burst { animation: burst 0.9s 0.3s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-radar, .anim-slide, .anim-rise, .anim-code, .anim-blink, .anim-pop, .anim-burst { animation: none; }
+  .anim-draw { animation: none; stroke-dashoffset: 0; }
+}

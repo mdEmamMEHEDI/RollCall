@@ -1,0 +1,10 @@
+{
+  "description": "Enables offline classroom attendance by connecting teacher and student devices nearby for seamless, reliable attendance tracking without internet access.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

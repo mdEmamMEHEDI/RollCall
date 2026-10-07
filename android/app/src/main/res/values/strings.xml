@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RollCall</string>
+    <string name="title_activity_main">RollCall</string>
+    <string name="package_name">bd.edu.diu.rollcall</string>
+    <string name="custom_url_scheme">bd.edu.diu.rollcall</string>
+</resources>
