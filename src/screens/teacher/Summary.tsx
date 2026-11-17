@@ -1,18 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Button, Icon, Spinner, StudentRow, Toast, TopBar, type Student } from '../../components/hazira/ui'
 import { listSaved, markUploaded, uploadAttendance } from '../../services/attendance'
+import { exportCsv, shareReport, type Report } from '../../services/export'
 import type { SaveStatus } from './LiveClass'
 
 export default function Summary({
   className,
   total,
   list,
+  roster = [],
+  room = '',
+  teacher = 'Dr. Nasrin Sultana',
   status: initStatus,
   onDone,
 }: {
   className: string
   total: number
   list: Student[]
+  // Whole class (from Load class) so the CSV can list absent students too
+  roster?: Student[]
+  room?: string
+  teacher?: string
   status: SaveStatus
   onDone: () => void
 }) {
@@ -31,6 +39,32 @@ export default function Summary({
     const t = setTimeout(() => setErr(''), 4000)
     return () => clearTimeout(t)
   }, [err])
+
+  const [exporting, setExporting] = useState<'csv' | 'share' | null>(null)
+  const [closedAt] = useState(clock)
+  const report = (): Report => ({ className, date: new Date(), closedAt, total, present: list, roster, room, teacher })
+
+  async function onCsv() {
+    setExporting('csv')
+    try {
+      const r = await exportCsv(report())
+      if (r === 'downloaded') setErr('CSV downloaded')
+    } catch {
+      setErr("Couldn't create the CSV. Try again.")
+    }
+    setExporting(null)
+  }
+
+  async function onShare() {
+    setExporting('share')
+    try {
+      const r = await shareReport(report())
+      if (r === 'downloaded') setErr('PDF downloaded and message copied')
+    } catch {
+      setErr("Couldn't open sharing. Try again.")
+    }
+    setExporting(null)
+  }
 
   async function uploadNow() {
     setBusy(true)
@@ -76,7 +110,7 @@ export default function Summary({
             </button>
           </div>
         )}
-        <p className="text-[13px] text-ink-2">{today} · Closed {upAt}</p>
+        <p className="text-[13px] text-ink-2">{today} · Closed {closedAt}</p>
         <h2 className="mt-1 font-display text-[24px] font-extrabold leading-tight tracking-[-0.02em] text-ink">{className}</h2>
 
         <div className="mt-5 rounded-sheet border border-line bg-surface p-5 shadow-card">
@@ -111,10 +145,19 @@ export default function Summary({
           <Toast text={err} />
         </div>
       )}
-      {/* Share attendance report to class groups */}
       <div className="absolute inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/90 px-4 pb-7 pt-3 backdrop-blur">
-        <Button variant="secondary" className="flex-1" icon={<Icon name="download" size={20} />}>CSV</Button>
-        <Button className="flex-[2]" icon={<Icon name="share" size={20} />}>Share report</Button>
+        <Button
+          variant="secondary"
+          className="flex-1"
+          disabled={!!exporting}
+          onClick={onCsv}
+          icon={exporting === 'csv' ? <Spinner /> : <Icon name="download" size={20} />}
+        >
+          CSV
+        </Button>
+        <Button className="flex-[2]" disabled={!!exporting} onClick={onShare} icon={exporting === 'share' ? <Spinner /> : <Icon name="share" size={20} />}>
+          Share report
+        </Button>
       </div>
     </div>
   )

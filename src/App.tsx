@@ -211,6 +211,8 @@ export default function App() {
         className={cls}
         total={total}
         list={final}
+        roster={classList}
+        room={room}
         status={view === 'summary-saved' ? 'saved' : saveStatus}
         onDone={() => go('profile')}
       />

@@ -13,7 +13,7 @@ export async function fetchMyCourses(): Promise<Course[]> {
 }
 
 const names = [
-  'Ayesha Rahman', 'Tanvir Hossain', 'Nusrat Jahan', 'Rafiul Islam', 'Sadia Akter', 'Mehedi Hasan',
+  'Arpita Saha', 'Tanvir Hossain', 'Nusrat Jahan', 'Rafiul Islam', 'Sadia Akter', 'Mehedi Hasan',
   'Farhana Karim', 'Arif Chowdhury', 'Tasnim Ferdous', 'Imran Kabir', 'Jannatul Mawa', 'Shakib Ahmed',
   'Raisa Sultana', 'Nafis Iqbal', 'Lamia Haque', 'Sabbir Rahman', 'Anika Tabassum', 'Zahid Hasan',
   'Mim Akter', 'Rakibul Alam', 'Sumaiya Noor', 'Fahim Mahmud', 'Priya Das', 'Joy Barua',
