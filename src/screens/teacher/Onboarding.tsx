@@ -137,7 +137,7 @@ export function SetupCheck({ initial, onBack, onStart }: { initial: Record<Setup
             </button>
           )}
         </div>
-        <div className="mt-5 rounded-sheet border border-line bg-surface p-2">
+        <div className="mt-5 rounded-sheet border border-line bg-surface shadow-card p-2">
           {items.map((it, idx) => {
             const s = state[it.key]
             const tone = s === 'on' ? 'bg-mint text-on-mint' : s === 'turning-on' ? 'bg-mint text-primary' : 'bg-red-soft text-red'
@@ -168,7 +168,7 @@ export function SetupCheck({ initial, onBack, onStart }: { initial: Record<Setup
                     <span className="text-[13px] font-semibold text-red">Off</span>
                     <button
                       onClick={() => turnOn(it.key)}
-                      className="h-9 rounded-full bg-primary px-4 font-display text-[13px] font-bold text-on-primary"
+                      className="h-9 rounded-xl bg-primary px-4 font-display text-[13px] font-bold text-on-primary"
                     >
                       Turn on
                     </button>

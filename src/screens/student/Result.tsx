@@ -8,7 +8,7 @@ const copy: Record<ResultKind, { title: string; body: string; cta: string; tone:
   closed: { title: 'Attendance closed', body: 'Time is over for today. Talk to your teacher.', cta: 'OK', tone: 'calm' },
   code: { title: 'Code is wrong or expired', body: 'Check the board. The code changes every 30 seconds.', cta: 'Type code again', tone: 'red' },
   roll: { title: 'ID already marked', body: 'Your ID is already marked from another phone. Tell your teacher.', cta: 'OK', tone: 'red' },
-  phone: { title: 'Phone linked to another ID', body: 'This phone is linked to 221-15-4790. Ask your teacher to reset it, or use your own phone.', cta: 'OK', tone: 'red' },
+  phone: { title: 'Phone linked to another ID', body: 'This phone is linked to 241-35-031. Ask your teacher to reset it, or use your own phone.', cta: 'OK', tone: 'red' },
   far: { title: 'You seem to be outside the room', body: 'The teacher’s signal is too weak. Attendance works only inside the classroom. Move in and try again.', cta: 'Try again', tone: 'red' },
   failed: { title: 'Teacher didn’t confirm', body: 'Your signal didn’t reach the teacher. Move closer and try again.', cta: 'Retry', tone: 'red' },
 }
@@ -64,7 +64,7 @@ export default function Result({ kind, cls, roll, teacher = 'Dr. Nasrin Sultana'
         <p className="mt-3 max-w-[30ch] text-[15px] leading-snug text-ink-2">{c.body}</p>
 
         {ok && (
-          <div className="mt-8 w-full rounded-base border border-line bg-surface px-4 py-3 text-left">
+          <div className="mt-8 w-full rounded-base border border-line bg-surface shadow-card px-4 py-3 text-left">
             <p className="text-[12px] text-ink-2">Class</p>
             <p className="font-display text-[16px] font-bold text-ink">{cls}</p>
             <p className="mt-1 text-[13px] text-ink-2">{roll} · {teacher}</p>

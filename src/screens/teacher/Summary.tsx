@@ -17,6 +17,8 @@ export default function Summary({
   onDone: () => void
 }) {
   const sorted = [...list].sort((a, b) => a.roll.localeCompare(b.roll))
+  const absent = Math.max(total - list.length, 0)
+  const rate = total ? Math.round((list.length / total) * 100) : 0
   const [status, setStatus] = useState(initStatus)
   const [busy, setBusy] = useState(false)
   const clock = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -56,7 +58,7 @@ export default function Summary({
             <p className="flex-1 text-[14px] font-semibold">Uploaded to server · {upAt}</p>
           </div>
         ) : (
-          <div className="anim-rise mb-5 flex items-center gap-3 rounded-base border border-line bg-surface px-4 py-3">
+          <div className="anim-rise mb-5 flex items-center gap-3 rounded-base border border-line bg-surface shadow-card px-4 py-3">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-bg text-ink-2">
               <Icon name="download" size={16} />
             </span>
@@ -67,7 +69,7 @@ export default function Summary({
             <button
               onClick={uploadNow}
               disabled={busy}
-              className="flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 font-display text-[13px] font-bold text-on-primary disabled:opacity-70"
+              className="flex h-9 shrink-0 items-center gap-2 rounded-xl bg-primary px-4 font-display text-[13px] font-bold text-on-primary disabled:opacity-70"
             >
               {busy && <Spinner size={14} />}
               {busy ? 'Uploading' : 'Upload now'}
@@ -75,26 +77,29 @@ export default function Summary({
           </div>
         )}
         <p className="text-[13px] text-ink-2">{today} · Closed {upAt}</p>
-        <h2 className="mt-1 font-display text-[26px] font-extrabold tracking-[-0.02em] text-ink">{className}</h2>
+        <h2 className="mt-1 font-display text-[24px] font-extrabold leading-tight tracking-[-0.02em] text-ink">{className}</h2>
 
-        <div className="mt-5 flex items-end gap-6">
-          <div>
-            <p className="font-display text-[48px] font-extrabold leading-none tabular-nums text-primary">
-              {list.length}
-              <span className="text-[22px] text-ink-2">/{total}</span>
-            </p>
-            <p className="mt-1 text-[13px] text-ink-2">attended</p>
+        <div className="mt-5 rounded-sheet border border-line bg-surface p-5 shadow-card">
+          <div className="grid grid-cols-3">
+            {(
+              [
+                ['Present', list.length, 'text-primary'],
+                ['Absent', absent, 'text-red'],
+                ['Attendance', `${rate}%`, 'text-ink'],
+              ] as const
+            ).map(([l, v, c], i) => (
+              <div key={l} className={i ? 'border-l border-line pl-4' : ''}>
+                <p className={`font-display text-[28px] font-extrabold leading-none tabular-nums ${c}`}>{v}</p>
+                <p className="mt-1.5 text-[12.5px] text-ink-2">{l}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex gap-5 pb-1 text-[13px]">
-            <p><b className="block font-display text-[20px] text-primary">{list.length}</b><span className="text-ink-2">Present</span></p>
-            <p><b className="block font-display text-[20px] text-red">{Math.max(total - list.length, 0)}</b><span className="text-ink-2">Absent</span></p>
+          <div className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-red-soft">
+            <span className="rounded-full bg-primary" style={{ width: `${rate}%` }} />
           </div>
         </div>
-        <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-red-soft">
-          <span className="bg-primary" style={{ width: `${(list.length / total) * 100}%` }} />
-        </div>
 
-        <h3 className="mb-1 mt-8 font-display text-[15px] font-bold text-ink">All students</h3>
+        <h3 className="mb-1 mt-8 font-display text-[15px] font-bold text-ink">Present · {list.length}</h3>
         <ul className="-mx-3">
           {sorted.map((s) => (
             <StudentRow key={s.id} s={s} />

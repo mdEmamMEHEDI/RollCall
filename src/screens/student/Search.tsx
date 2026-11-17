@@ -54,7 +54,7 @@ export function Search({
             <p className="mt-1 text-[14px] text-ink-2">Check these things:</p>
             <ul className="mt-6 w-full space-y-2 text-left">
               {['Is the code the same as the board? It changes every 30 s', 'Has the teacher started the class?', 'Are you inside the room?'].map((t, i) => (
-                <li key={t} className="flex items-center gap-3 rounded-base border border-line bg-surface px-4 py-3.5 text-[14px] text-ink">
+                <li key={t} className="flex items-center gap-3 rounded-base border border-line bg-surface shadow-card px-4 py-3.5 text-[14px] text-ink">
                   <span className="grid size-7 shrink-0 place-items-center rounded-full bg-mint font-display text-[13px] font-bold text-on-mint">{i + 1}</span>
                   {t}
                 </li>
@@ -94,7 +94,7 @@ export function Search({
         )}
         <ul className="space-y-3">
           {found.map((c, i) => (
-            <li key={c.sessionId} className="anim-rise rounded-sheet border border-line bg-surface p-5" style={{ animationDelay: `${i * 120}ms` }}>
+            <li key={c.sessionId} className="anim-rise rounded-sheet border border-line bg-surface shadow-card p-5" style={{ animationDelay: `${i * 120}ms` }}>
               <div className="flex items-start gap-3">
                 <span className="grid size-12 shrink-0 place-items-center rounded-full bg-primary font-display text-[16px] font-extrabold text-on-primary">
                   {c.teacher.replace('Dr. ', '').split(' ').map((w) => w[0]).join('')}

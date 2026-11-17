@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { BottomSheet, Button, Icon, Radar, Spinner, StudentRow, SystemDialog, Toast, type Student } from '../../components/hazira/ui'
+import { BottomSheet, Button, Icon, Radar, Spinner, StudentRow, SystemDialog, Toast, shortId, type Student } from '../../components/hazira/ui'
 import { saveOffline, uploadAttendance, type Session } from '../../services/attendance'
 import { FAR_RSSI, hostSession, idDigits, isNative } from '../../services/ble'
 import { Ble, phoneReady, turnOnNative, usePhoneState } from '../../services/native'
-import { newCode, roster } from './data'
+import { newCode, roster as demoRoster } from './data'
 
 export type SaveStatus = 'uploaded' | 'saved'
 
@@ -15,13 +15,13 @@ function CountdownRing({ left }: { left: number }) {
   return (
     <div className="relative size-16 shrink-0">
       <svg viewBox="0 0 64 64" className="size-16 -rotate-90">
-        <circle cx="32" cy="32" r={r} fill="none" stroke="#14211f" strokeOpacity="0.14" strokeWidth="6" />
+        <circle cx="32" cy="32" r={r} fill="none" stroke="#0f1b2d" strokeOpacity="0.14" strokeWidth="6" />
         <circle
           cx="32"
           cy="32"
           r={r}
           fill="none"
-          stroke="#14211f"
+          stroke="#0f1b2d"
           strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={c}
@@ -29,7 +29,7 @@ function CountdownRing({ left }: { left: number }) {
           style={{ transition: 'stroke-dashoffset 1s linear' }}
         />
       </svg>
-      <span className="absolute inset-0 grid place-items-center font-display text-[17px] font-extrabold tabular-nums text-[#14211f]">
+      <span className="absolute inset-0 grid place-items-center font-display text-[17px] font-extrabold tabular-nums text-[#0f1b2d]">
         {left}
       </span>
     </div>
@@ -45,6 +45,7 @@ export default function LiveClass({
   total,
   room = '',
   teacher = 'Dr. Nasrin Sultana',
+  students: roster = demoRoster,
   onEnd,
 }: {
   className: string
@@ -55,6 +56,8 @@ export default function LiveClass({
   total: number
   room?: string
   teacher?: string
+  // The class list loaded on Load class (server roster); Bluetooth and manual marking match against it
+  students?: Student[]
   onEnd: (list: Student[], status: SaveStatus) => void
 }) {
   const [startedAt] = useState(() => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
@@ -219,7 +222,7 @@ export default function LiveClass({
           <p className="flex-1 text-[13px] leading-snug">
             <b className="font-semibold">{offLabel}</b> New students can't join until you turn it on.
           </p>
-          <button onClick={() => (phone ? turnOnNative(offKey).then((ok) => void (!ok && offKey === 'nearby' && Ble.openAppSettings())).catch(() => {}) : setBtAsk(true))} className="h-9 rounded-full bg-red px-4 font-display text-[13px] font-bold text-white">
+          <button onClick={() => (phone ? turnOnNative(offKey).then((ok) => void (!ok && offKey === 'nearby' && Ble.openAppSettings())).catch(() => {}) : setBtAsk(true))} className="h-9 rounded-xl bg-red px-4 font-display text-[13px] font-bold text-white">
             Turn on
           </button>
         </div>
@@ -235,12 +238,21 @@ export default function LiveClass({
         />
       )}
 
-      <div className="flex items-center gap-2 px-6 pb-3 pt-3">
-        <span className={`size-2 rounded-full ${closed ? 'bg-ink-2' : btOff ? 'bg-red' : 'anim-blink bg-primary'}`} />
-        <p className="flex-1 truncate text-[13px] font-semibold text-ink-2">
-          {closed ? 'Closed' : btOff ? 'Paused' : 'Live'} · {className}
-        </p>
-        <p className="text-[13px] tabular-nums text-ink-2">{startedAt}</p>
+      {/* Header: class, status and time left */}
+      <div className="flex items-center gap-3 px-5 pb-3 pt-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-[16px] font-bold text-ink">{className}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-ink-2">
+            <span className={`size-1.5 rounded-full ${closed ? 'bg-ink-2' : btOff ? 'bg-red' : 'anim-blink bg-primary'}`} />
+            {closed ? 'Closed' : btOff ? 'Paused' : 'Live'} · Started {startedAt}
+          </p>
+        </div>
+        {!closed && (
+          <span className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 font-display text-[14px] font-bold tabular-nums text-ink" aria-label="Time left">
+            <Icon name="clock" size={16} />
+            {mm}:{ss}
+          </span>
+        )}
       </div>
 
       {/* The hero: amber code panel */}
@@ -255,53 +267,51 @@ export default function LiveClass({
           </div>
         </div>
       ) : (
-        <div className="mx-4 rounded-sheet bg-amber px-5 pb-5 pt-4 text-[#14211f] shadow-[0_18px_40px_-18px_rgba(245,165,36,0.8)]">
+        <div className="mx-4 rounded-sheet bg-amber px-5 pb-5 pt-4 text-[#0f1b2d]">
           <div className="flex items-center justify-between">
-            <p className="font-display text-[14px] font-bold uppercase tracking-[0.14em]">Show this on the board</p>
+            <p className="font-display text-[12.5px] font-bold uppercase tracking-[0.16em] opacity-80">Class code</p>
             <CountdownRing left={left} />
           </div>
-          <p key={code} className="anim-code -mt-1 font-display text-[92px] font-extrabold leading-[0.95] tracking-[0.12em] tabular-nums">
+          <p key={code} className="anim-code -mt-2 font-display text-[88px] font-extrabold leading-[0.95] tracking-[0.12em] tabular-nums">
             {code}
           </p>
-          <p className="mt-2 text-[13px] font-medium opacity-70">New code every 30 seconds · Old codes stop working</p>
+          <p className="mt-1 text-[12.5px] font-medium opacity-70">Show this on the board · Changes every 30 s</p>
         </div>
       )}
 
-      {/* Live counter */}
-      <div className="flex items-end gap-3 px-6 pt-5">
-        <p className="font-display text-[56px] font-extrabold leading-[0.85] tracking-[-0.03em] tabular-nums text-primary">{list.length}</p>
-        <div className="flex-1 pb-0.5">
-          <p className="font-display text-[20px] font-bold leading-none text-ink">present</p>
-          <p className="mt-1 text-[13px] tabular-nums text-ink-2">
-            {closed ? 'Final count' : (
-              <>Closes in <b className="font-display font-extrabold text-ink">{mm}:{ss}</b></>
-            )}
-          </p>
-        </div>
-      </div>
-      {!closed && (
-        <div className="mx-6 mt-3 h-1.5 overflow-hidden rounded-full bg-line">
-          <span
-            className="block h-full rounded-full bg-primary"
-            style={{ width: `${(remaining / (windowMin * 60)) * 100}%`, transition: 'width 1s linear' }}
-          />
-        </div>
-      )}
-      {!closed && !btOff && (
-        <div className="mx-6 mt-3 flex items-center gap-2 text-[12px] text-ink-2">
-          <Icon name="broadcast" size={16} />
-          <span className="flex-1">Broadcasting · {total - list.length - review.length} not joined yet</span>
+      {/* Count */}
+      <div className="mx-4 mt-3 rounded-sheet border border-line bg-surface px-5 py-4 shadow-card">
+        <div className="flex items-baseline gap-2">
+          <p className="font-display text-[34px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-primary">{list.length}</p>
+          <p className="text-[14px] text-ink-2">of {total} present</p>
           {confirming > 0 && (
-            <span className="anim-pop flex items-center gap-1.5 font-semibold text-primary">
+            <span className="anim-pop ml-auto flex items-center gap-1.5 self-center text-[12.5px] font-semibold text-primary">
               <Spinner size={12} /> {confirming} confirming
             </span>
           )}
         </div>
-      )}
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
+          <span
+            className="block h-full rounded-full bg-primary"
+            style={{ width: `${Math.min(list.length / Math.max(total, 1), 1) * 100}%`, transition: 'width 0.5s ease-out' }}
+          />
+        </div>
+        <p className="mt-2.5 flex items-center gap-1.5 text-[12px] text-ink-2">
+          {closed ? (
+            'Final count'
+          ) : btOff ? (
+            'Paused. Students can join again once it is back on.'
+          ) : (
+            <>
+              <Icon name="broadcast" size={14} /> Broadcasting · {Math.max(total - list.length - review.length, 0)} not joined yet
+            </>
+          )}
+        </p>
+      </div>
 
       <div className="no-scrollbar mt-3 flex-1 overflow-y-auto px-3 pb-28">
         {review.length > 0 && (
-          <div className="anim-rise mx-1 mb-3 rounded-base border-2 border-amber/60 bg-amber/10 p-3">
+          <div className="anim-rise mx-1 mb-3 rounded-2xl border border-amber/60 bg-amber/10 p-3">
             <p className="px-1 font-display text-[13px] font-bold uppercase tracking-[0.1em] text-ink">Needs your check · {review.length}</p>
             <ul className="mt-1">
               {review.map((s) => (
@@ -309,7 +319,7 @@ export default function LiveClass({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-semibold text-ink">{s.name}</p>
                     <p className="text-[12px] leading-snug text-ink-2">
-                      {s.flag === 'far' ? 'Very weak signal. Maybe outside the room.' : 'Same phone already marked 221-15-4106.'}
+                      {s.flag === 'far' ? 'Very weak signal. Maybe outside the room.' : 'Same phone already marked 241-35-007.'}
                     </p>
                   </div>
                   <button
@@ -325,7 +335,7 @@ export default function LiveClass({
                       setFresh(s.id)
                       setList((l) => [{ ...s, flag: undefined }, ...l])
                     }}
-                    className="h-9 rounded-full bg-primary px-3 font-display text-[13px] font-bold text-on-primary"
+                    className="h-9 rounded-xl bg-primary px-3 font-display text-[13px] font-bold text-on-primary"
                   >
                     Accept
                   </button>
@@ -397,7 +407,7 @@ export default function LiveClass({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search name or roll"
+          placeholder="Search name or ID, e.g. 024"
           className="mt-4 h-12 w-full rounded-base border-2 border-line bg-bg px-4 text-[15px] text-ink outline-none placeholder:text-ink-2/60 focus:border-primary"
         />
         <ul className="no-scrollbar -mx-3 mt-2 max-h-[300px] overflow-y-auto">
@@ -406,13 +416,16 @@ export default function LiveClass({
           ) : (
             absent.map((s) => (
               <li key={s.id} className="flex items-center gap-3 rounded-base px-3 py-2">
-                <span className="grid h-10 w-11 shrink-0 place-items-center rounded-xl border border-line bg-bg font-display text-[13px] font-extrabold tabular-nums text-ink-2">
-                  {s.roll}
+                <span className="grid h-11 min-w-[56px] shrink-0 place-items-center rounded-xl bg-mint px-2 font-display text-[17px] font-extrabold tabular-nums tracking-[0.02em] text-on-mint">
+                  {shortId(s.roll)}
                 </span>
-                <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{s.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-ink">{s.name}</p>
+                  <p className="truncate text-[12px] tabular-nums text-ink-2">{s.roll}</p>
+                </div>
                 <button
                   onClick={() => markPresent(s)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-mint px-3 font-display text-[13px] font-bold text-on-mint hover:brightness-95"
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-mint px-3 font-display text-[13px] font-bold text-on-mint hover:brightness-95"
                 >
                   <Icon name="check" size={16} stroke={3} /> Present
                 </button>

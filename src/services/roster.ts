@@ -25,9 +25,10 @@ const names = [
 ]
 
 // Same mock list, available synchronously for the live-class demo
-export const mockClass: RosterStudent[] = names.map((name, i) => ({ id: `221-15-${String(4100 + i * 3)}`, name }))
-// The student app's test login (Ayesha Rahman, 221-15-4821) must be on the roster for a 2-phone test
-mockClass[mockClass.length - 1] = { id: '221-15-4821', name: 'Ayesha Rahman' }
+// DIU format: batch prefix (241-35) is shared by the class, the last 3 digits tell students apart
+export const mockClass: RosterStudent[] = names.map((name, i) => ({ id: `241-35-${String(i * 2 + 1).padStart(3, '0')}`, name }))
+// The student app's test login (Ayesha Rahman, 241-35-024) must be on the roster for a 2-phone test
+mockClass[mockClass.length - 1] = { id: '241-35-024', name: 'Ayesha Rahman' }
 
 // TODO (DIU API #1): registered students of this course + section, e.g.
 // fetch(`${API}/classes/roster?course=...&section=...&room=...`, { headers: { Authorization: token } })

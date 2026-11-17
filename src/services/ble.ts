@@ -17,7 +17,7 @@ import { Ble, isNative, type Packet } from './native'
  *    are ignored. If 2 rooms share a code (1 in 10 000) the student picks by teacher name + room.
  *
  * 3. STUDENT ADVERTISES (100 ms for up to 20 s)
- *    sessionId 4B | studentId 5B (221-15-4821 packed) | deviceId 3B | nonce 2B |
+ *    sessionId 4B | studentId 5B (241-35-024 packed) | deviceId 3B | nonce 2B |
  *    tag 4B = HMAC(deviceKey, sessionId|studentId|code|nonce)
  *    deviceKey is created on the phone at first login and never leaves it (no extra server needed;
  *    DIU only gives the roster and the attendance push). The teacher's phone remembers which deviceId
@@ -117,7 +117,7 @@ async function sha(msg: Uint8Array, n: number) {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', msg as BufferSource)).slice(0, n)
 }
 
-// "221-15-4821" → 5 bytes (digits as a number). Matching against the roster is by digits only.
+// "241-35-024" → 5 bytes (digits as a number). Matching against the roster is by digits only.
 export const idDigits = (id: string) => id.replace(/\D/g, '')
 function packId(id: string) {
   let n = BigInt(idDigits(id) || '0')

@@ -7,11 +7,11 @@ type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function Button({ variant = 'primary', icon, className = '', children, ...rest }: BtnProps) {
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-full font-display font-bold text-[16px] tracking-[-0.01em] transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 disabled:cursor-not-allowed'
+    'inline-flex items-center justify-center gap-2 rounded-2xl font-display font-bold text-[15.5px] tracking-[-0.01em] transition duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:active:scale-100'
   const v = {
-    primary: 'h-14 px-6 bg-primary text-on-primary disabled:bg-line disabled:text-ink-2 hover:brightness-110',
-    secondary: 'h-14 px-6 bg-surface text-primary border-2 border-primary/25 hover:border-primary disabled:opacity-50',
-    text: 'h-10 px-3 text-primary hover:bg-mint',
+    primary: 'h-[52px] px-6 bg-primary text-on-primary hover:bg-primary-deep disabled:bg-line disabled:text-ink-2',
+    secondary: 'h-[52px] px-6 bg-mint text-on-mint hover:brightness-[0.97] disabled:opacity-50',
+    text: 'h-11 px-4 text-[15px] text-ink-2 hover:bg-mint hover:text-primary',
   }[variant]
   return (
     <button className={`${base} ${v} ${className}`} {...rest}>
@@ -51,12 +51,12 @@ export function TextField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[13px] font-semibold text-ink-2">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-medium text-ink-2">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`h-14 w-full rounded-base border-2 bg-surface px-4 text-[16px] text-ink outline-none transition placeholder:text-ink-2/60 focus:ring-4 ${
+        className={`h-[52px] w-full rounded-2xl border-[1.5px] bg-surface px-4 text-[16px] text-ink outline-none transition placeholder:text-ink-2/60 focus:ring-4 ${
           error ? 'border-red focus:ring-red/20' : 'border-line focus:border-primary focus:ring-primary/15'
         }`}
       />
@@ -82,13 +82,13 @@ export function Select({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[13px] font-semibold text-ink-2">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-medium text-ink-2">{label}</span>
       <span className="relative block">
         <select
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="h-14 w-full appearance-none truncate rounded-base border-2 border-line bg-surface pl-4 pr-11 text-[16px] text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-50"
+          className="h-[52px] w-full appearance-none truncate rounded-2xl border-[1.5px] border-line bg-surface pl-4 pr-11 text-[16px] text-ink outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:opacity-50"
         >
           {placeholder && (
             <option value="" disabled>
@@ -109,42 +109,47 @@ export function Select({
   )
 }
 
-export function Stepper({ value, onChange, min = 0, max = 30 }: { value: number; onChange: (v: number) => void; min?: number; max?: number }) {
-  const b = 'size-9 rounded-full grid place-items-center bg-mint text-on-mint text-lg font-bold disabled:opacity-40'
+// Minimal segmented picker (e.g. attendance window)
+export function Segmented<T extends string | number>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
   return (
-    <div className="flex items-center gap-3">
-      <button aria-label="Less" className={b} disabled={value <= min} onClick={() => onChange(value - 1)}>
-        −
-      </button>
-      <span className="w-6 text-center font-display text-[18px] font-extrabold tabular-nums">{value}</span>
-      <button aria-label="More" className={b} disabled={value >= max} onClick={() => onChange(value + 1)}>
-        +
-      </button>
+    <div className="grid gap-1 rounded-2xl border border-line bg-bg p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      {options.map((o) => (
+        <button
+          key={String(o.value)}
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          className={`h-10 rounded-xl text-[14px] font-semibold tabular-nums transition ${value === o.value ? 'bg-primary text-on-primary shadow-[0_4px_10px_-4px_var(--primary)]' : 'text-ink-2 hover:bg-mint hover:text-on-mint'}`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
+
+// The batch prefix (241-35) is shared by the whole class; the last part tells students apart
+export const shortId = (roll: string) => roll.split('-').pop() || roll
 
 // flag: 'far' = weak signal (maybe outside the room), 'dup' = this phone already marked another ID
 export type Student = { roll: string; name: string; status: Status; time: string; id: number; flag?: 'far' | 'dup' }
 
 export function StudentRow({ s, onRemove, animate }: { s: Student; onRemove?: () => void; animate?: boolean }) {
+  const initials = s.name.split(' ').map((w) => w[0]).join('').slice(0, 2)
   return (
-    <li className={`flex items-center gap-3 rounded-base px-3 py-2.5 ${animate ? 'anim-slide' : ''}`}>
-      <span className="grid h-10 w-11 shrink-0 place-items-center rounded-xl bg-bg font-display text-[13px] font-extrabold tabular-nums text-ink-2 border border-line">
-        {s.roll.slice(-4)}
-      </span>
+    <li className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 ${animate ? 'anim-slide' : ''}`}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-mint font-display text-[13px] font-bold text-on-mint">{initials}</span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-semibold text-ink">{s.name}</p>
-        <p className="truncate text-[12px] text-ink-2 tabular-nums">{s.roll} · {s.time}</p>
+        <p className="truncate text-[12.5px] tabular-nums text-ink-2">{s.roll}</p>
       </div>
-      <StatusChip status={s.status} />
+      <span className="shrink-0 text-[12px] tabular-nums text-ink-2">{s.time}</span>
       {onRemove && (
         <button
           onClick={onRemove}
           aria-label={`Remove ${s.name}`}
-          className="grid size-9 place-items-center rounded-full text-ink-2 hover:bg-red-soft hover:text-red"
+          className="-mr-1 grid size-9 shrink-0 place-items-center rounded-full text-ink-2/70 hover:bg-red-soft hover:text-red"
         >
-          <Icon name="x" size={18} />
+          <Icon name="x" size={17} />
         </button>
       )}
     </li>
@@ -155,9 +160,9 @@ export function BottomSheet({ open, onClose, children }: { open: boolean; onClos
   if (!open) return null
   return (
     <div className="absolute inset-0 z-30 flex flex-col justify-end">
-      <button aria-label="Close" onClick={onClose} className="absolute inset-0 bg-[#14211f]/45" />
+      <button aria-label="Close" onClick={onClose} className="absolute inset-0 bg-scrim" />
       <div className="anim-rise relative rounded-t-sheet bg-surface px-6 pb-8 pt-3">
-        <div className="mx-auto mb-5 h-1.5 w-10 rounded-full bg-line" />
+        <div className="mx-auto mb-5 h-1 w-9 rounded-full bg-line" />
         {children}
       </div>
     </div>
@@ -167,7 +172,7 @@ export function BottomSheet({ open, onClose, children }: { open: boolean; onClos
 // Mock of the Android system permission dialog
 export function SystemDialog({ text, onAllow, onDeny }: { text: string; onAllow: () => void; onDeny: () => void }) {
   return (
-    <div className="absolute inset-0 z-40 grid place-items-center bg-[#14211f]/45 px-8">
+    <div className="absolute inset-0 z-40 grid place-items-center bg-scrim px-8">
       <div className="anim-pop w-full rounded-[24px] bg-surface p-6 shadow-2xl">
         <div className="mx-auto mb-4 w-fit"><Logo size={40} /></div>
         <p className="text-center text-[16px] leading-snug text-ink">{text}</p>
@@ -302,6 +307,25 @@ const paths: Record<string, ReactNode> = {
       <circle cx="12" cy="15.5" r="1" fill="currentColor" />
     </>
   ),
+  id: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="3" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="M6 16a3 3 0 016 0M14.5 10h4M14.5 13.5h3" />
+    </>
+  ),
+  building: (
+    <>
+      <path d="M4 20V6l8-3 8 3v14M2.5 20h19" />
+      <path d="M9 20v-4h6v4M8 9h.01M12 9h.01M16 9h.01M8 12.5h.01M12 12.5h.01M16 12.5h.01" />
+    </>
+  ),
+  cap: (
+    <>
+      <path d="M2.5 9.5L12 5l9.5 4.5L12 14z" />
+      <path d="M6.5 11.5V16c1.5 1.5 3.5 2.2 5.5 2.2s4-.7 5.5-2.2v-4.5M21.5 9.5V15" />
+    </>
+  ),
   users: (
     <>
       <circle cx="9" cy="8" r="3.5" />
@@ -329,5 +353,54 @@ export function TopBar({ title, onBack, right }: { title?: string; onBack?: () =
       <h1 className="flex-1 font-display text-[17px] font-bold text-ink">{title}</h1>
       {right}
     </div>
+  )
+}
+
+// Blue identity header shared by the teacher and student profile screens
+export function ProfileHeader({ initials, name, subtitle, onLogout }: { initials: string; name: string; subtitle: string; onLogout: () => void }) {
+  return (
+    <div className="relative overflow-hidden rounded-b-[32px] bg-gradient-to-br from-primary to-primary-deep px-6 pb-7 pt-2 text-white">
+      <span aria-hidden className="absolute -right-16 -top-20 size-56 rounded-full border-[28px] border-white/[0.07]" />
+      <span aria-hidden className="absolute -bottom-24 -left-10 size-48 rounded-full bg-white/[0.06]" />
+      <div className="relative flex items-center justify-between">
+        <span className="flex items-center gap-2 font-display text-[14px] font-bold opacity-90">
+          <span className="overflow-hidden rounded-[9px] ring-2 ring-white/30">
+            <Logo size={26} />
+          </span>
+          RollCall
+        </span>
+        <button onClick={onLogout} className="h-10 rounded-full px-4 text-[14px] font-semibold text-white/85 hover:bg-white/10">
+          Log out
+        </button>
+      </div>
+      <div className="relative mt-5 flex items-center gap-4">
+        <span className="grid size-[72px] shrink-0 place-items-center rounded-full bg-white font-display text-[26px] font-extrabold text-primary shadow-[0_0_0_6px_rgb(255_255_255/0.16)]">
+          {initials}
+        </span>
+        <div className="min-w-0">
+          <h1 className="font-display text-[23px] font-extrabold leading-tight tracking-[-0.02em]">{name}</h1>
+          <p className="mt-0.5 text-[14px] text-white/75">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Label/value list used on profile screens
+export function InfoList({ rows }: { rows: { icon: string; label: string; value: string; mono?: boolean }[] }) {
+  return (
+    <dl className="rounded-sheet border border-line bg-surface px-4 shadow-card">
+      {rows.map((r, i) => (
+        <div key={r.label} className={`flex items-center gap-3.5 py-3.5 ${i ? 'border-t border-line' : ''}`}>
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-mint text-on-mint">
+            <Icon name={r.icon} size={19} />
+          </span>
+          <div className="min-w-0">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-2">{r.label}</dt>
+            <dd className={`mt-0.5 truncate text-[15px] font-semibold text-ink ${r.mono ? 'font-display tabular-nums tracking-[0.04em]' : ''}`}>{r.value}</dd>
+          </div>
+        </div>
+      ))}
+    </dl>
   )
 }

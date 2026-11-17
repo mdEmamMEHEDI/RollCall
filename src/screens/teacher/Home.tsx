@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Icon, Select, Stepper, TextField, TopBar } from '../../components/hazira/ui'
+import { Button, Icon, Segmented, Select, TextField, TopBar } from '../../components/hazira/ui'
 import { fetchMyCourses, fetchRoster, type ClassQuery, type Course, type RosterStudent } from '../../services/roster'
 
 export type LoadedClass = ClassQuery & { students: RosterStudent[]; window: number }
@@ -122,26 +122,17 @@ export default function Home({ onBack, onStart }: { onBack: () => void; onStart:
           </>
         )}
 
-        <div className="rounded-base border border-line bg-surface p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-primary"><Icon name="clock" size={20} /></span>
-            <p className="flex-1 text-[14px] text-ink">
-              Attendance open for <b className="font-display font-extrabold">{win} min</b>
-            </p>
-            <Stepper value={win} onChange={setWin} min={1} max={15} />
+        <div className="rounded-sheet border border-line bg-surface p-4 shadow-card">
+          <p className="flex items-center gap-2 text-[14px] text-ink">
+            <span className="text-primary">
+              <Icon name="clock" size={18} />
+            </span>
+            Attendance open for <b className="font-display font-extrabold text-primary">{win} min</b>
+          </p>
+          <div className="mt-3">
+            <Segmented value={win} onChange={setWin} options={[3, 5, 10, 15].map((m) => ({ value: m, label: `${m} min` }))} />
           </div>
-          <div className="mt-3 flex gap-2">
-            {[3, 5, 10].map((m) => (
-              <button
-                key={m}
-                onClick={() => setWin(m)}
-                className={`h-8 rounded-full px-3 text-[13px] font-semibold transition ${win === m ? 'bg-primary text-on-primary' : 'bg-mint text-on-mint'}`}
-              >
-                {m} min
-              </button>
-            ))}
-          </div>
-          <p className="mt-3 text-[12px] leading-snug text-ink-2">Students who don't join in time are absent for today.</p>
+          <p className="mt-3 text-[12.5px] leading-snug text-ink-2">Students who don't join in time are marked absent.</p>
         </div>
 
         {err && (

@@ -1,8 +1,8 @@
 import { Button, Icon, Logo } from './ui'
 
 const copy = {
-  teacher: 'Effortless attendance tracking for every class.',
-  student: 'Quick and secure check-in in seconds.',
+  teacher: 'Fast, secure attendance for every class.',
+  student: 'Check in to your class in seconds.',
 }
 
 // Shared login screen for both apps. TODO: onLogin opens the DIU login, then returns with the token.

@@ -28,7 +28,7 @@ export default function Join({ name, roll, onFind }: { name: string; roll: strin
             return (
               <div
                 key={i}
-                className={`relative grid h-[84px] place-items-center rounded-base border-2 bg-surface font-display text-[44px] font-extrabold tabular-nums text-ink transition ${
+                className={`relative grid h-[84px] place-items-center rounded-2xl border-[1.5px] bg-surface font-display text-[44px] font-extrabold tabular-nums text-ink transition ${
                   active ? 'border-amber ring-4 ring-amber/20' : d ? 'border-primary/40' : 'border-line'
                 }`}
               >

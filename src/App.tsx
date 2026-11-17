@@ -5,7 +5,7 @@ import Join from './screens/student/Join'
 import { Connecting, Search } from './screens/student/Search'
 import Result, { type ResultKind } from './screens/student/Result'
 import type { Student } from './components/hazira/ui'
-import { roster } from './screens/teacher/data'
+import { roster, toStudents } from './screens/teacher/data'
 import { SetupCheck, Welcome, defaultSetup } from './screens/teacher/Onboarding'
 import Home, { type LoadedClass } from './screens/teacher/Home'
 import TeacherProfile from './screens/teacher/Profile'
@@ -62,7 +62,7 @@ function useStudent() {
   const [k, setK] = useState(0)
   // Comes from the DIU login (mock)
   const name = 'Ayesha Rahman'
-  const roll = '221-15-4821'
+  const roll = '241-35-024'
   const [cls, setCls] = useState('CSE321 Software Engineering')
   const [code, setCode] = useState('4721')
   const [picked, setPicked] = useState<NearbyClass | null>(null)
@@ -100,7 +100,7 @@ function useStudent() {
   if (view === 'welcome') screen = <SWelcome onNext={() => go('profile')} />
   else if (view === 'exited')
     screen = (
-      <div className="flex h-full flex-col items-center justify-center gap-6 bg-[#14211f] px-6 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-6 bg-[#0f1b2d] px-6 text-center">
         <p className="text-[14px] text-white/60">RollCall is closed</p>
         <button onClick={() => go('profile')} className="h-12 rounded-full bg-white/10 px-6 font-display text-[15px] font-bold text-white">
           Open again
@@ -168,6 +168,7 @@ export default function App() {
     go(Object.values(s).every(Boolean) ? 'live' : 'setup-missing')
   }
   const [final, setFinal] = useState<Student[]>(roster.slice(0, 46))
+  const [classList, setClassList] = useState<Student[]>(roster)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('uploaded')
   const [online, setOnline] = useState(true)
   useEffect(() => {
@@ -197,6 +198,7 @@ export default function App() {
         onStart={(c: LoadedClass) => {
           setCls(`${c.course} · ${c.section}`)
           setTotal(c.students.length)
+          setClassList(toStudents(c.students))
           setWin(c.window)
           setRoom(c.room)
           toLive()
@@ -223,6 +225,7 @@ export default function App() {
         window={win}
         total={total}
         room={room}
+        students={classList}
         onEnd={(l, st) => {
           setFinal(l)
           setSaveStatus(st)
@@ -234,7 +237,7 @@ export default function App() {
   // Android app: just the one app, fullscreen. No sidebar, no phone frame, no simulate buttons.
   if (isNative)
     return (
-      <div key={app === 'teacher' ? `t${k}` : `s${student.k}`} className="h-dvh bg-bg pt-[env(safe-area-inset-top)] text-ink">
+      <div key={app === 'teacher' ? `t${k}` : `s${student.k}`} className="h-dvh bg-bg pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] text-ink">
         {app === 'teacher' ? screen : student.screen}
       </div>
     )
@@ -295,10 +298,10 @@ export default function App() {
           </aside>
 
           <div className="flex justify-center">
-            <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[52px] border-[10px] border-[#14211f] bg-bg shadow-2xl">
+            <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[52px] border-[10px] border-[#0f1b2d] bg-bg shadow-2xl">
               <div className="flex h-11 items-center justify-between px-8 pt-1 text-[13px] font-semibold text-ink">
                 <span className="tabular-nums">10:24</span>
-                <span className="absolute left-1/2 top-2 h-7 w-28 -translate-x-1/2 rounded-full bg-[#14211f]" />
+                <span className="absolute left-1/2 top-2 h-7 w-28 -translate-x-1/2 rounded-full bg-[#0f1b2d]" />
                 <span className={`text-[11px] ${online ? 'text-ink-2' : 'text-red'}`}>{online ? 'Online' : 'No internet'} · 82%</span>
               </div>
               <div key={app === 'teacher' ? `t${k}` : `s${student.k}`} className="h-[calc(100%-44px)]">

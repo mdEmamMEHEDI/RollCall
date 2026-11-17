@@ -37,7 +37,7 @@ export function Permissions({ denied: deniedInit, onBack, onNext }: { denied: bo
       <TopBar onBack={onBack} title="Quick setup" />
       <div className="no-scrollbar flex-1 overflow-y-auto px-6">
         <p className="text-[15px] text-ink-2">RollCall needs these to find your class. You do this only once.</p>
-        <div className="mt-5 rounded-sheet border border-line bg-surface p-2">
+        <div className="mt-5 rounded-sheet border border-line bg-surface shadow-card p-2">
           {perms.map((p, i) => {
             const isOn = on[p.key]
             const blocked = denied && p.key === 'nearby'
@@ -63,7 +63,7 @@ export function Permissions({ denied: deniedInit, onBack, onNext }: { denied: bo
                   ) : (
                     <button
                       onClick={() => enable(p.key)}
-                      className="h-9 rounded-full bg-primary px-4 font-display text-[13px] font-bold text-on-primary"
+                      className="h-9 rounded-xl bg-primary px-4 font-display text-[13px] font-bold text-on-primary"
                     >
                       Enable
                     </button>

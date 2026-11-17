@@ -1,44 +1,52 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+/* Fonts ship inside the app so they work with no internet */
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/inter';
 @import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: 'Manrope', sans-serif;
-  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
   --radius-base: 16px;
   --radius-sheet: 28px;
 }
 
 :root {
-  --bg: #f7faf9;
+  --bg: #f4f7fb;
   --surface: #ffffff;
-  --ink: #14211f;
-  --ink-2: #566663;
-  --line: #e1ebe8;
+  --ink: #0f1b2d;
+  --ink-2: #5b677a;
+  --line: #e1e7f0;
   --primary: #0066cc;
+  --primary-deep: #004c99;
   --on-primary: #ffffff;
-  --mint: #e3effb;
-  --on-mint: #0066cc;
+  --mint: #e6f0fb;
+  --on-mint: #0058b0;
   --amber: #f5a524;
-  --on-amber: #14211f;
+  --on-amber: #0f1b2d;
   --red: #d64545;
-  --red-soft: #fbe6e6;
+  --red-soft: #fbe8e8;
+  --scrim: rgb(9 17 30 / 0.5);
+  --shadow-card: 0 1px 2px rgb(15 27 45 / 0.04), 0 8px 24px -12px rgb(15 27 45 / 0.12);
 }
 .dark {
-  --bg: #0b1514;
-  --surface: #13201e;
-  --ink: #e8f1ef;
-  --ink-2: #9db0ac;
-  --line: #22322f;
+  --bg: #0a1220;
+  --surface: #111c2e;
+  --ink: #e8eef7;
+  --ink-2: #98a6bb;
+  --line: #1f2d43;
   --primary: #5aa9ff;
+  --primary-deep: #2f7fd6;
   --on-primary: #04203f;
-  --mint: #0f2a47;
+  --mint: #10284a;
   --on-mint: #a9cffb;
   --amber: #f5a524;
-  --on-amber: #14211f;
+  --on-amber: #0f1b2d;
   --red: #ef6b6b;
   --red-soft: #3a1c1c;
+  --scrim: rgb(0 0 0 / 0.6);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
 }
 
 @theme inline {
@@ -48,6 +56,7 @@
   --color-ink-2: var(--ink-2);
   --color-line: var(--line);
   --color-primary: var(--primary);
+  --color-primary-deep: var(--primary-deep);
   --color-on-primary: var(--on-primary);
   --color-mint: var(--mint);
   --color-on-mint: var(--on-mint);
@@ -55,11 +64,25 @@
   --color-on-amber: var(--on-amber);
   --color-red: var(--red);
   --color-red-soft: var(--red-soft);
+  --color-scrim: var(--scrim);
+  --shadow-card: var(--shadow-card);
 }
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  /* Feels like an app, not a web page: no blue tap flash, no accidental text selection on controls */
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
   }
 }
 @layer utilities {

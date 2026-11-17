@@ -7,7 +7,9 @@ import siteConfiguration from './.figma/make/site.json'
 
 
 // Vite config — https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
+  // Some shells export NODE_ENV=development, which would ship React's slow debug build into the APK
+  if (command === 'build' && mode !== 'development') process.env.NODE_ENV = 'production'
   // .figma/make/deploy-preview passes `--mode development` for cached-preview builds.
   const emitSourcemaps = mode === 'development'
 
