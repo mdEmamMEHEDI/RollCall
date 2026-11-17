@@ -37,7 +37,7 @@ export function Search({
       const near = r.filter((c) => c.rssi >= MIN_RSSI)
       if (r.length && !near.length) return onFar()
       setFound(near)
-    })
+    }).catch(() => live && setFound([])) // Bluetooth went off: the app sends them to setup
     return () => {
       live = false
     }

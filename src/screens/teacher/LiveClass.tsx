@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { BottomSheet, Button, Icon, Radar, Spinner, StudentRow, SystemDialog, Toast, type Student } from '../../components/hazira/ui'
 import { saveOffline, uploadAttendance, type Session } from '../../services/attendance'
 import { FAR_RSSI, hostSession, idDigits, isNative } from '../../services/ble'
+import { Ble, phoneReady, turnOnNative, usePhoneState } from '../../services/native'
 import { newCode, roster } from './data'
 
 export type SaveStatus = 'uploaded' | 'saved'
@@ -85,6 +86,13 @@ export default function LiveClass({
   const [fresh, setFresh] = useState<number | null>(null)
   const [btOff, setBtOff] = useState(btOffInit)
   const [btAsk, setBtAsk] = useState(false)
+  // Android app: pause and warn the moment Bluetooth, Location or the permission goes off mid-class
+  const phone = usePhoneState()
+  useEffect(() => {
+    if (phone) setBtOff(!phoneReady(phone))
+  }, [phone])
+  const offKey = !phone ? 'bluetooth' : !phone.nearby ? 'nearby' : !phone.bluetooth ? 'bluetooth' : !phone.location ? 'location' : 'bluetooth'
+  const offLabel = { bluetooth: 'Bluetooth is off.', location: 'Location is off.', nearby: 'Nearby devices is not allowed.' }[offKey]
   const [removed, setRemoved] = useState<{ s: Student; idx: number } | null>(null)
   const [sheet, setSheet] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -150,7 +158,7 @@ export default function LiveClass({
   const host = useRef<ReturnType<typeof hostSession> | null>(null)
   const acks = useRef(new Map<number, string>())
   useEffect(() => {
-    if (!isNative || closed) return
+    if (!isNative || closed || btOff) return
     const [course, section = ''] = className.split(' · ')
     const usedBy = new Map<string, string>()
     const h = hostSession({ teacher, course, section, room }, (a) => {
@@ -177,10 +185,13 @@ export default function LiveClass({
       host.current = null
       h.stop()
     }
-  }, [closed])
+  }, [closed, btOff])
   useEffect(() => {
     host.current?.setCode(code)
-  }, [code, closed])
+  }, [code, closed, btOff])
+  useEffect(() => {
+    host.current?.setAcks(list.map((s) => acks.current.get(s.id)).filter((x): x is string => !!x))
+  }, [btOff])
   useEffect(() => {
     host.current?.setAcks(list.map((s) => acks.current.get(s.id)).filter((x): x is string => !!x))
   }, [list])
@@ -204,11 +215,11 @@ export default function LiveClass({
     <div className="relative flex h-full flex-col">
       {btOff && (
         <div className="anim-rise mx-4 mt-2 flex items-center gap-3 rounded-base bg-red-soft px-4 py-3 text-red">
-          <Icon name="bluetooth" size={20} />
+          <Icon name={offKey} size={20} />
           <p className="flex-1 text-[13px] leading-snug">
-            <b className="font-semibold">Bluetooth is off.</b> New students can't join until you turn it on.
+            <b className="font-semibold">{offLabel}</b> New students can't join until you turn it on.
           </p>
-          <button onClick={() => setBtAsk(true)} className="h-9 rounded-full bg-red px-4 font-display text-[13px] font-bold text-white">
+          <button onClick={() => (phone ? turnOnNative(offKey).then((ok) => void (!ok && offKey === 'nearby' && Ble.openAppSettings())).catch(() => {}) : setBtAsk(true))} className="h-9 rounded-full bg-red px-4 font-display text-[13px] font-bold text-white">
             Turn on
           </button>
         </div>

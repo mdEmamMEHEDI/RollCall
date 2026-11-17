@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Icon, Logo, TopBar } from '../../components/hazira/ui'
+import { Ble, isNative, turnOnNative, usePhoneState } from '../../services/native'
 
 export function Welcome({ onNext }: { onNext: () => void }) {
   return (
@@ -24,6 +25,19 @@ export function Permissions({ denied: deniedInit, onBack, onNext }: { denied: bo
   const [on, setOn] = useState<Record<string, boolean>>({ bluetooth: true, location: true, nearby: false })
   const [denied, setDenied] = useState(deniedInit)
   const all = perms.every((p) => on[p.key])
+  // Android app: show the phone's real switches, and turn them on the real way
+  const phone = usePhoneState()
+  useEffect(() => {
+    if (!phone) return
+    setOn({ bluetooth: phone.bluetooth, location: phone.location, nearby: phone.nearby })
+    if (phone.nearby) setDenied(false)
+  }, [phone])
+  async function enable(k: (typeof perms)[number]['key']) {
+    if (!isNative) return setOn({ ...on, [k]: true })
+    const ok = await turnOnNative(k).catch(() => false)
+    if (ok) setOn((o) => ({ ...o, [k]: true }))
+    else if (k === 'nearby') setDenied(true)
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -55,7 +69,7 @@ export function Permissions({ denied: deniedInit, onBack, onNext }: { denied: bo
                     <span className="text-[13px] font-semibold text-red">Blocked</span>
                   ) : (
                     <button
-                      onClick={() => setOn({ ...on, [p.key]: true })}
+                      onClick={() => enable(p.key)}
                       className="h-9 rounded-full bg-primary px-4 font-display text-[13px] font-bold text-on-primary"
                     >
                       Enable
@@ -77,6 +91,7 @@ export function Permissions({ denied: deniedInit, onBack, onNext }: { denied: bo
               variant="secondary"
               className="mt-3 h-11! w-full text-[14px]"
               onClick={() => {
+                if (isNative) return void Ble.openAppSettings()
                 setDenied(false)
                 setOn({ ...on, nearby: true })
               }}

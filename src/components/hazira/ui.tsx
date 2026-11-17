@@ -211,12 +211,32 @@ export function Radar({ size = 220 }: { size?: number }) {
   )
 }
 
+// Mark: the tile is the classroom. The teacher's phone (amber) broadcasts BLE ripples
+// across a grid of seats; the reached seat is checked in, the far seat is out of range.
 export function Logo({ size = 56 }: { size?: number }) {
+  const seats = [22, 34, 46].flatMap((y) => [22, 34, 46].map((x) => ({ x, y })))
+  const id = `rc-clip-${size}`
   return (
-    <svg width={size} height={size} viewBox="0 0 56 56" aria-label="RollCall">
-      <rect width="56" height="56" rx="18" fill="var(--primary)" />
-      <path d="M19 41V15h10a7 7 0 010 14H19M28 29l10 12" stroke="var(--on-primary)" strokeWidth="5" strokeLinecap="round" />
-      <circle cx="42" cy="14" r="5" fill="#F5A524" />
+    <svg width={size} height={size} viewBox="0 0 56 56" role="img" aria-label="RollCall">
+      <defs>
+        <clipPath id={id}>
+          <rect width="56" height="56" rx="16" />
+        </clipPath>
+      </defs>
+      <rect width="56" height="56" rx="16" fill="var(--primary)" />
+      <g clipPath={`url(#${id})`} fill="none" stroke="var(--on-primary)" strokeWidth="2">
+        <circle cx="12" cy="12" r="13" opacity="0.28" />
+        <circle cx="12" cy="12" r="24" opacity="0.18" />
+        <circle cx="12" cy="12" r="35" opacity="0.1" />
+      </g>
+      <circle cx="12" cy="12" r="4.5" fill="#F5A524" />
+      {seats.map(({ x, y }) =>
+        x === 34 && y === 34 ? null : (
+          <circle key={`${x}-${y}`} cx={x} cy={y} r="3.2" fill="var(--on-primary)" opacity={x === 46 && y === 46 ? 0.3 : 1} />
+        ),
+      )}
+      <circle cx="34" cy="34" r="6.8" fill="var(--on-primary)" />
+      <path d="M30.8 34.2l2.2 2.2 4.2-4.6" fill="none" stroke="var(--primary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BottomSheet, Button, Icon, Logo, Spinner, SystemDialog, TopBar } from '../../components/hazira/ui'
+import { Ble, isNative, turnOnNative, usePhoneState } from '../../services/native'
 
 // TODO: replace onContinue with the real login API call
 export function Welcome({ onContinue }: { onContinue: () => void }) {
@@ -42,7 +43,34 @@ export function SetupCheck({ initial, onBack, onStart }: { initial: Record<Setup
   const offItems = items.filter((i) => state[i.key] !== 'on')
   const ready = offItems.length === 0
 
+  // Android app: follow the real switches, and use the real system dialogs / Settings pages
+  const phone = usePhoneState()
+  useEffect(() => {
+    if (!phone) return
+    setState((p) => Object.fromEntries(items.map((i) => [i.key, phone[i.key] ? 'on' : p[i.key] === 'failed' ? 'failed' : 'off'])) as Record<SetupKey, ItemState>)
+    if (sheet && phone[sheet]) setSheet(null)
+  }, [phone])
+
+  async function turnOnReal(k: SetupKey) {
+    if (state[k] === 'failed') return setSheet(k)
+    set(k, 'turning-on')
+    const ok = await turnOnNative(k).catch(() => false)
+    if (ok) set(k, 'on')
+    else if (k === 'location') set(k, 'off') // Settings is open; we update when they come back
+    else {
+      set(k, 'failed')
+      setSheet(k)
+    }
+  }
+
+  function openSettings(k: SetupKey) {
+    if (k === 'location') Ble.openLocationSettings()
+    else if (k === 'nearby') Ble.openAppSettings()
+    else turnOnNative('bluetooth').then((ok) => ok && set(k, 'on'))
+  }
+
   function turnOn(k: SetupKey) {
+    if (isNative) return void turnOnReal(k)
     const it = items.find((i) => i.key === k)!
     if (it.mode === 'auto' && state[k] !== 'failed') setDialog(k)
     else setSheet(k)
@@ -62,6 +90,16 @@ export function SetupCheck({ initial, onBack, onStart }: { initial: Record<Setup
 
   function checkAgain(k: SetupKey) {
     setChecking(true)
+    if (isNative) {
+      Ble.status().then((st) => {
+        setChecking(false)
+        if (st[k]) {
+          setSheet(null)
+          set(k, 'on')
+        }
+      })
+      return
+    }
     setTimeout(() => {
       setChecking(false)
       setSheet(null)
@@ -71,6 +109,16 @@ export function SetupCheck({ initial, onBack, onStart }: { initial: Record<Setup
 
   // "Turn on all": walk through each off item one at a time
   useEffect(() => {
+    if (runAll && isNative) {
+      // Real dialogs: go through each off item once, in order
+      setRunAll(false)
+      ;(async () => {
+        // Permission first (Bluetooth needs it), Location last because it leaves the app
+        const order: SetupKey[] = ['nearby', 'bluetooth', 'location']
+        for (const k of order) if (offItems.some((i) => i.key === k)) await turnOnReal(k)
+      })()
+      return
+    }
     if (!runAll || dialog || sheet || checking) return
     if (Object.values(state).includes('turning-on')) return
     const next = offItems[0]
@@ -179,7 +227,7 @@ export function SetupCheck({ initial, onBack, onStart }: { initial: Record<Setup
               ))}
             </ol>
             <div className="mt-6 space-y-2">
-              <Button className="w-full" icon={<Icon name="chevron" size={18} />}>Open settings</Button>
+              <Button className="w-full" icon={<Icon name="chevron" size={18} />} onClick={() => isNative && openSettings(sheetItem.key)}>Open settings</Button>
               <Button variant="secondary" className="w-full" disabled={checking} onClick={() => checkAgain(sheetItem.key)}>
                 {checking ? (<><Spinner /> Checking…</>) : "I've turned it on"}
               </Button>

@@ -13,7 +13,7 @@ import LiveClass, { type SaveStatus } from './screens/teacher/LiveClass'
 import Summary from './screens/teacher/Summary'
 import { setOnlineOverride } from './services/attendance'
 import { isNative, sendAttendance, type NearbyClass } from './services/ble'
-import { nativeRole, preparePhone } from './services/native'
+import { nativeRole, phoneReady, preparePhone, usePhoneState } from './services/native'
 
 type View = 'welcome' | 'profile' | 'setup-missing' | 'setup-ready' | 'home' | 'live' | 'live-empty' | 'live-bt' | 'live-closed' | 'summary' | 'summary-saved'
 
@@ -83,6 +83,12 @@ function useStudent() {
     const t = setTimeout(() => go('r-success'), 2200)
     return () => clearTimeout(t)
   }, [view, k])
+
+  // Android app: if Bluetooth / Location / Nearby goes off while joining, show setup instead of failing silently
+  const phone = usePhoneState()
+  useEffect(() => {
+    if (phone && !phoneReady(phone) && ['join', 'search', 'connecting'].includes(view)) go('perms')
+  }, [phone, view])
 
   let screen
   // Web preview uses studentSetup; the Android app asks the phone (permission + Bluetooth on)

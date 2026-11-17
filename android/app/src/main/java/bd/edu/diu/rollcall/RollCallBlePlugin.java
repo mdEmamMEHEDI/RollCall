@@ -13,12 +13,16 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.Uri;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.ParcelUuid;
 import androidx.activity.result.ActivityResult;
+import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -42,7 +46,7 @@ import java.util.Map;
         @Permission(alias = "ble", strings = {
             Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.BLUETOOTH_CONNECT
         }),
-        @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION })
+        @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION })
     }
 )
 public class RollCallBlePlugin extends Plugin {
@@ -54,22 +58,47 @@ public class RollCallBlePlugin extends Plugin {
         return m == null ? null : m.getAdapter();
     }
 
-    private String permAlias() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? "ble" : "location";
+    private String[] permAliases() {
+        // Many phones (Xiaomi, Samsung, ...) still hide BLE results without Location, so ask for it everywhere
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? new String[] { "ble", "location" } : new String[] { "location" };
+    }
+
+    private boolean permsGranted() {
+        for (String a : permAliases()) if (getPermissionState(a) != PermissionState.GRANTED) return false;
+        return true;
+    }
+
+    // Tell JS whenever Bluetooth or Location is switched on/off, and when the user comes back from Settings
+    private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            notifyListeners("state", state());
+        }
+    };
+
+    @Override
+    public void load() {
+        IntentFilter f = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+        f.addAction(LocationManager.PROVIDERS_CHANGED_ACTION);
+        ContextCompat.registerReceiver(getContext(), stateReceiver, f, ContextCompat.RECEIVER_NOT_EXPORTED);
+    }
+
+    @Override
+    protected void handleOnResume() {
+        notifyListeners("state", state());
     }
 
     private JSObject state() {
         BluetoothAdapter a = adapter();
-        boolean location = true;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            // Android 11 and older need Location turned on to see BLE devices
-            LocationManager lm = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
-            location = lm != null && (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
-        }
+        LocationManager lm = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+        boolean location;
+        if (lm == null) location = false;
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) location = lm.isLocationEnabled();
+        else location = lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
         JSObject o = new JSObject();
         o.put("bluetooth", a != null && a.isEnabled());
         o.put("location", location);
-        o.put("nearby", getPermissionState(permAlias()) == PermissionState.GRANTED);
+        o.put("nearby", permsGranted());
         o.put("canAdvertise", a != null && a.isEnabled() && a.getBluetoothLeAdvertiser() != null);
         return o;
     }
@@ -82,8 +111,8 @@ public class RollCallBlePlugin extends Plugin {
     /** Asks for the permission, then for Bluetooth on. Resolves with the final state. */
     @PluginMethod
     public void prepare(PluginCall call) {
-        if (getPermissionState(permAlias()) != PermissionState.GRANTED) {
-            requestPermissionForAlias(permAlias(), call, "permDone");
+        if (!permsGranted()) {
+            requestPermissionForAliases(permAliases(), call, "permDone");
         } else {
             askBluetooth(call);
         }
@@ -91,7 +120,7 @@ public class RollCallBlePlugin extends Plugin {
 
     @PermissionCallback
     private void permDone(PluginCall call) {
-        if (getPermissionState(permAlias()) != PermissionState.GRANTED) {
+        if (!permsGranted()) {
             call.resolve(state());
             return;
         }
@@ -101,6 +130,11 @@ public class RollCallBlePlugin extends Plugin {
     @SuppressLint("MissingPermission")
     private void askBluetooth(PluginCall call) {
         BluetoothAdapter a = adapter();
+        // Android 12+ crashes the Bluetooth dialog without the Nearby devices permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getPermissionState("ble") != PermissionState.GRANTED) {
+            call.resolve(state());
+            return;
+        }
         if (a != null && !a.isEnabled()) {
             startActivityForResult(call, new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), "btDone");
         } else {
@@ -111,6 +145,33 @@ public class RollCallBlePlugin extends Plugin {
     @ActivityCallback
     private void btDone(PluginCall call, ActivityResult result) {
         call.resolve(state());
+    }
+
+    /** Only the permission dialog (Nearby devices + Location). */
+    @PluginMethod
+    public void requestNearby(PluginCall call) {
+        if (permsGranted()) call.resolve(state());
+        else requestPermissionForAliases(permAliases(), call, "nearbyDone");
+    }
+
+    @PermissionCallback
+    private void nearbyDone(PluginCall call) {
+        call.resolve(state());
+    }
+
+    /** Only the "Turn on Bluetooth?" system dialog. */
+    @PluginMethod
+    public void enableBluetooth(PluginCall call) {
+        askBluetooth(call);
+    }
+
+    /** App info page, for when a permission was denied with "Don't ask again". */
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        Intent i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName()));
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(i);
+        call.resolve();
     }
 
     @PluginMethod
@@ -280,6 +341,9 @@ public class RollCallBlePlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
+        try {
+            getContext().unregisterReceiver(stateReceiver);
+        } catch (Exception ignored) {}
         BluetoothAdapter a = adapter();
         if (a != null) {
             BluetoothLeAdvertiser adv = a.getBluetoothLeAdvertiser();
