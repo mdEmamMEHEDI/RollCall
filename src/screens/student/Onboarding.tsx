@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Button, Icon, Logo, TopBar } from '../../components/hazira/ui'
+import { Button, Icon, TopBar } from '../../components/hazira/ui'
+import WelcomeScreen from '../../components/hazira/Welcome'
 import { Ble, isNative, turnOnNative, usePhoneState } from '../../services/native'
 
+// TODO: open DIU login https://auth1.diu.edu.bd/realms/diu-student/... (client_id=student-portal-ui), then return with the token
 export function Welcome({ onNext }: { onNext: () => void }) {
-  return (
-    <div className="flex h-full flex-col px-6 pb-8">
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <Logo size={80} />
-        <h1 className="mt-6 font-display text-[40px] font-extrabold leading-none tracking-[-0.03em] text-ink">RollCall</h1>
-      </div>
-      {/* TODO: open DIU login https://auth1.diu.edu.bd/realms/diu-student/... (client_id=student-portal-ui), then return with the token */}
-      <Button className="w-full" onClick={onNext}>Login</Button>
-    </div>
-  )
+  return <WelcomeScreen role="student" onLogin={onNext} />
 }
 
 const perms = [

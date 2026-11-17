@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react'
-import { BottomSheet, Button, Icon, Logo, Spinner, SystemDialog, TopBar } from '../../components/hazira/ui'
+import { BottomSheet, Button, Icon, Spinner, SystemDialog, TopBar } from '../../components/hazira/ui'
+import WelcomeScreen from '../../components/hazira/Welcome'
 import { Ble, isNative, turnOnNative, usePhoneState } from '../../services/native'
 
 // TODO: replace onContinue with the real login API call
 export function Welcome({ onContinue }: { onContinue: () => void }) {
-  return (
-    <div className="flex h-full flex-col px-6 pb-8">
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <Logo size={80} />
-        <h1 className="mt-6 font-display text-[40px] font-extrabold leading-none tracking-[-0.03em] text-ink">RollCall</h1>
-      </div>
-      <Button onClick={onContinue} className="w-full">Login</Button>
-    </div>
-  )
+  return <WelcomeScreen role="teacher" onLogin={onContinue} />
 }
 
 export type SetupKey = 'bluetooth' | 'location' | 'nearby'
