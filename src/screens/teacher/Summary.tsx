@@ -111,9 +111,10 @@ export default function Summary({
           <Toast text={err} />
         </div>
       )}
+      {/* Share attendance report to class groups */}
       <div className="absolute inset-x-0 bottom-0 flex gap-3 border-t border-line bg-bg/90 px-4 pb-7 pt-3 backdrop-blur">
         <Button variant="secondary" className="flex-1" icon={<Icon name="download" size={20} />}>CSV</Button>
-        <Button className="flex-[2]" icon={<Icon name="share" size={20} />}>Share</Button>
+        <Button className="flex-[2]" icon={<Icon name="share" size={20} />}>Share report</Button>
       </div>
     </div>
   )
